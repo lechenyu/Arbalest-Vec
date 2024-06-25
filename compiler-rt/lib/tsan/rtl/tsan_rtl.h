@@ -462,7 +462,8 @@ class ScopedReport : public ScopedReportBase {
 enum DMIType {
   USE_OF_UNINITIALIZED_MEMORY = 0,
   USE_OF_STALE_DATA = 1,
-  BUFFER_OVERFLOW = 2
+  BUFFER_OVERFLOW_ACCESS = 2,
+  BUFFER_OVERFLOW_MAPPING = 3
 };
 
 bool ShouldReport(ThreadState *thr, ReportType typ);
@@ -839,6 +840,7 @@ void UnalignedUpdateVsm(ThreadState *thr, uptr addr, uptr size);
 void UnalignedUpdateVsm16(ThreadState *thr, uptr addr);
 void UpdateVsmForMemoryRange(ThreadState *thr, uptr addr, uptr size);
 void CheckBound(ThreadState *thr, uptr pc, uptr base, uptr start, uptr size);
+void CheckMappingBound(ThreadState *thr, uptr pc, Node *mapping);
 
 #if !SANITIZER_GO
 extern void (*on_initialize)(void);

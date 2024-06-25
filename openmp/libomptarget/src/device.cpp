@@ -362,6 +362,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
 
 #if OMPTARGET_OMPT_SUPPORT
     Mem.addTargetDataOp(ompt_device_mem_flag_to);
+    Mem.invokeCallback();
 #endif
 
     int Ret =

@@ -565,7 +565,35 @@ ALWAYS_INLINE USED void CheckBound(ThreadState *thr, uptr pc, uptr base, uptr st
       UNUSED bool res = TryTraceMemoryAccess(thr, pc, start, size, kAccessRead);
     }
     Node *n = ctx->t_to_h.find({base, base + size});
-    ReportDMI(thr, start, size, n, kAccessRead, BUFFER_OVERFLOW);
+    ReportDMI(thr, start, size, n, kAccessRead, BUFFER_OVERFLOW_ACCESS);
+  }
+}
+
+// mapping: target -> host
+ALWAYS_INLINE USED void CheckMappingBound(ThreadState *thr, uptr pc, Node *mapping) {
+    // check if the mapping range is larger than the host variable
+  uptr host_start = mapping->info.start;
+  uptr size = mapping->info.size;
+  Allocator *mem_alloc = allocator();
+  void *host_start_addr = reinterpret_cast<void *>(host_start);
+  bool report_error = false;
+  if (mem_alloc->PointerIsMine(host_start_addr)) {
+    MBlock *mb = nullptr;
+    uptr block_begin = reinterpret_cast<uptr>(mem_alloc->GetBlockBegin(host_start_addr));
+    if (block_begin) {
+      mb = ctx->metamap.GetBlock(block_begin);
+    }
+    if (mb && block_begin + mb->siz < host_start + size) {
+      mapping->info.size = block_begin + mb->siz - host_start;
+      report_error = true;
+    }
+  }
+  if (report_error) {
+    if (UNLIKELY(!TryTraceMemoryAccess(thr, pc, host_start, size, kAccessRead))) {
+      TraceSwitchPart(thr);
+      UNUSED bool res = TryTraceMemoryAccess(thr, pc, host_start, size, kAccessRead);
+    }
+    ReportDMI(thr, host_start, size, mapping, kAccessRead, BUFFER_OVERFLOW_MAPPING);
   }
 }
 

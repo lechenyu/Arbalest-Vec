@@ -354,8 +354,10 @@ AnnotateMemoryIsInitialized(char *f, int l, uptr mem, uptr sz) {}
 void INTERFACE_ATTRIBUTE
 AnnotateMemoryIsUninitialized(char *f, int l, uptr mem, uptr sz) {}
 
-void INTERFACE_ATTRIBUTE
-AnnotateMapping(const void *src_addr, const void *dest_addr, uptr bytes, u8 optype, const char *var_name) {
+void INTERFACE_ATTRIBUTE AnnotateMapping(const void *src_addr,
+                                         const void *dest_addr, uptr bytes,
+                                         u8 optype, const void *codeptr,
+                                         const char *var_name) {
   SCOPED_ANNOTATION(AnnotateMapping);
 
   // FIXME: Shall we always assume src is host?
@@ -392,6 +394,9 @@ AnnotateMapping(const void *src_addr, const void *dest_addr, uptr bytes, u8 opty
   }
 
   if (optype & ompt_device_mem_flag_to) {
+    Node mapping = {target, mh};
+    CheckMappingBound(thr, reinterpret_cast<uptr>(codeptr), &mapping);
+
     Node *n = ctx->t_to_h.find(target);
     ASSERT(n,
            "[to] Device address [%p, %p] does not involve in any "
@@ -402,6 +407,9 @@ AnnotateMapping(const void *src_addr, const void *dest_addr, uptr bytes, u8 opty
   }
 
   if (optype & ompt_device_mem_flag_from) {
+    Node mapping = {target, mh};
+    CheckMappingBound(thr, reinterpret_cast<uptr>(codeptr), &mapping);
+
     Node *n = ctx->t_to_h.find(target);
     ASSERT(n,
            "[from] Device address [%p, %p] does not involve in any "

@@ -853,11 +853,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     if (!ForTarget) {
       Mapping.addMapping(HstPtrBegin, TgtPtrBegin, DataSize, ArgTypes[I]);
     }
-    map_var_info_t HstPtrName = (!ArgNames) ? nullptr : ArgNames[I];
-    OmptDeviceMem Mem{ArgBases[I],     HstPtrBegin,
-                      HostDeviceNum,   TgtPtrBegin,
-                      Device.DeviceID, (size_t)DataSize,
-                      CodePtr, reinterpret_cast<char *>(HstPtrName)};
 #endif
 
     // If the last element from the mapper (for end transfer args comes in
@@ -885,7 +880,15 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
             }
           }
 #if OMPTARGET_OMPT_SUPPORT
-          Mem.addTargetDataOp(ompt_device_mem_flag_from);
+          {
+            map_var_info_t HstPtrName = (!ArgNames) ? nullptr : ArgNames[I];
+            OmptDeviceMem Mem{
+                ArgBases[I],     HstPtrBegin,
+                HostDeviceNum,   TgtPtrBegin,
+                Device.DeviceID, (size_t)DataSize,
+                CodePtr,         reinterpret_cast<char *>(HstPtrName)};
+            Mem.addTargetDataOp(ompt_device_mem_flag_from);
+          }
 #endif
           Ret = Device.retrieveData(HstPtrBegin, TgtPtrBegin, DataSize,
                                     AsyncInfo, false, CodePtr);
@@ -1038,11 +1041,13 @@ static int targetDataContiguous(ident_t *Loc, DeviceTy &Device, void *ArgsBase,
        ArgSize, DPxPTR(TgtPtrBegin), DPxPTR(HstPtrBegin));
 
 #if OMPTARGET_OMPT_SUPPORT
-    OmptDeviceMem Mem{ArgsBase, HstPtrBegin,
-                      HostDeviceNum,   TgtPtrBegin,
-                      Device.DeviceID, (size_t)ArgSize,
-                      CodePtr, reinterpret_cast<char *>(ArgName)};
-    Mem.addTargetDataOp(ompt_device_mem_flag_from);
+    {
+      OmptDeviceMem Mem{ArgsBase,        HstPtrBegin,
+                        HostDeviceNum,   TgtPtrBegin,
+                        Device.DeviceID, (size_t)ArgSize,
+                        CodePtr,         reinterpret_cast<char *>(ArgName)};
+      Mem.addTargetDataOp(ompt_device_mem_flag_from);
+    }
 #endif
 
     int Ret = Device.retrieveData(HstPtrBegin, TgtPtrBegin, ArgSize, AsyncInfo,
@@ -1073,11 +1078,13 @@ static int targetDataContiguous(ident_t *Loc, DeviceTy &Device, void *ArgsBase,
        ArgSize, DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin));
 
 #if OMPTARGET_OMPT_SUPPORT
-    OmptDeviceMem Mem{ArgsBase, HstPtrBegin,
-                      HostDeviceNum,   TgtPtrBegin,
-                      Device.DeviceID, (size_t)ArgSize,
-                      CodePtr, reinterpret_cast<char *>(ArgName)};
-    Mem.addTargetDataOp(ompt_device_mem_flag_to);
+    {
+      OmptDeviceMem Mem{ArgsBase,        HstPtrBegin,
+                        HostDeviceNum,   TgtPtrBegin,
+                        Device.DeviceID, (size_t)ArgSize,
+                        CodePtr,         reinterpret_cast<char *>(ArgName)};
+      Mem.addTargetDataOp(ompt_device_mem_flag_to);
+    }
 #endif
 
     int Ret = Device.submitData(TgtPtrBegin, HstPtrBegin, ArgSize, AsyncInfo,

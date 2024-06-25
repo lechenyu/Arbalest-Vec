@@ -893,7 +893,8 @@ void ReportDMI(ThreadState *thr, uptr addr, uptr size, Node *mapping, AccessType
     rep_typ = ReportTypeStaleAccess;
     break;
 
-  case BUFFER_OVERFLOW:
+  case BUFFER_OVERFLOW_ACCESS:
+  case BUFFER_OVERFLOW_MAPPING:
     rep_typ = ReportTypeBufferOverflow;
     break;
 
@@ -942,13 +943,21 @@ void ReportDMI(ThreadState *thr, uptr addr, uptr size, Node *mapping, AccessType
     uptr var_name_size = var_name_end - var_name_start;
     internal_memcpy(thr->str_buffer, var_name_start, var_name_size);
     char *next_start = thr->str_buffer + var_name_size;
-    if (dmi_typ == BUFFER_OVERFLOW) {
+    if (dmi_typ == BUFFER_OVERFLOW_ACCESS) {
       int max_len = mapping->info.size / size;
       int offset = (addr - mapping->interval.left_end) / size;
       internal_snprintf(next_start, kStrBufferSize - var_name_size,
                         ", max mapped elements (%lu-byte element): %d, "
                         "element to be accessed: %d",
                         size, max_len, offset);
+    } else if (dmi_typ == BUFFER_OVERFLOW_MAPPING) {
+      uptr mapped_section =
+          mapping->interval.right_end - mapping->interval.left_end;
+      internal_snprintf(
+          next_start, kStrBufferSize - var_name_size,
+          ", the mapped memory section exceeds the host variable, host "
+          "variable size: %lu, mapped section size: %lu",
+          mapping->info.size, mapped_section);
     } else {
       if (is_array) {
         int offset = (addr - mapping->interval.left_end) / size;
