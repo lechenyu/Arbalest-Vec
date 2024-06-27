@@ -39,6 +39,8 @@ int ompt_initialize(ompt_function_lookup_t lookup, int initial_device_num,
                            ompt_callback_target_map_t);
   register_ompt_callback_t(ompt_callback_target_submit,
                            ompt_callback_target_submit_t);
+  register_ompt_callback_t(ompt_callback_device_mem,
+                           ompt_callback_device_mem_t);
   return 1; // success
 }
 

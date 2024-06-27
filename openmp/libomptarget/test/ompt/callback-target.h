@@ -154,23 +154,23 @@ static void format_device_mem_flag(int flag, char *buffer) {
 static void on_ompt_callback_device_mem(ompt_data_t *target_task_data,
                                         ompt_data_t *target_data,
                                         unsigned int device_mem_flag,
-                                        void *orig_base_addr, void *orig_addr,
-                                        int orig_device_num, void *dest_addr,
-                                        int dest_device_num, size_t bytes,
+                                        void *host_base_addr, void *host_addr,
+                                        int host_device_num, void *target_addr,
+                                        int target_device_num, size_t bytes,
                                         const void *codeptr_ra, const char *var_name) {
   char buffer[2048];
   format_device_mem_flag(device_mem_flag, buffer);
   printf("%" PRIu64 ":" _TOOL_PREFIX
          " ompt_event_device_mem: target_task_id=%" PRIu64
-         ", target_id=%" PRIu64 ", device_mem_flag=%s, orig_base_addr=%p, "
-         "orig_addr=%p, orig_device_num=%" PRIu32
-         ", dest_addr=%p, dest_device_num=%" PRIu32 ", bytes=%" PRIu64
+         ", target_id=%" PRIu64 ", device_mem_flag=%s, host_base_addr=%p, "
+         "host_addr=%p, host_device_num=%" PRIu32
+         ", target_addr=%p, target_device_num=%" PRIu32 ", bytes=%" PRIu64
          ", codeptr_ra=%p"
          "\n",
          ompt_get_thread_data()->value,
          target_task_data ? target_task_data->value : 0, target_data->value,
-         buffer, orig_base_addr, orig_addr, orig_device_num, dest_addr,
-         dest_device_num, bytes, codeptr_ra);
+         buffer, host_base_addr, host_addr, host_device_num, target_addr,
+         target_device_num, bytes, codeptr_ra);
 }
 
 static void on_ompt_callback_target_emi(ompt_target_t kind,

@@ -61,9 +61,19 @@ int main() {
   // ASYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_2:[0-9]+]], device_num=[[DEVICE_NUM]]
   // ASYNC-SAME: kind=ompt_target_update_nowait, codeptr_ra=(nil)
 
+  // SYNC: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // SYNC-SAME: target_task_id=0, target_id=[[TARGET_ID_2]], device_mem_flag=ompt_device_mem_flag_to
+  // SYNC-SAME: host_base_addr=[[BASE_ADDR:0x[0-f]+]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // SYNC-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
+
   // SYNC: {{^}}[[MASTER_ID]]: ompt_event_target_data_op
   // SYNC-SAME: target_id=[[TARGET_ID_2]], host_op_id=[[HOST_OP_ID_2:[0-9]+]], optype=ompt_target_data_transfer_to_device, src_addr=[[SRC_ADDR]]
   // SYNC-SAME: src_device_num=[[HOST_NUM]], dest_addr=[[DEST_ADDR]], dest_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
+
+  // ASYNC: {{^}}[[THREAD_ID_2]]: ompt_event_device_mem
+  // ASYNC-SAME: target_task_id=[[TARGET_TASK_ID_2]], target_id=[[TARGET_ID_2]], device_mem_flag=ompt_device_mem_flag_to
+  // ASYNC-SAME: host_base_addr=[[BASE_ADDR:0x[0-f]+]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // ASYNC-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=(nil)
 
   // ASYNC: {{^}}[[THREAD_ID_2]]: ompt_event_target_data_op
   // ASYNC-SAME: target_id=[[TARGET_ID_2]], host_op_id=[[HOST_OP_ID_2:[0-9]+]], optype=ompt_target_data_transfer_to_device, src_addr=[[SRC_ADDR]]
@@ -72,7 +82,7 @@ int main() {
   // SYNC: {{^}}[[MASTER_ID]]: ompt_event_target_end
   // SYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_2]], device_num=[[DEVICE_NUM]]
   // SYNC-SAME: kind=ompt_target_update, codeptr_ra=[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
-  // SYNC: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_2]]
+  // SYNC: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
 
   // ASYNC: {{^}}[[THREAD_ID_2]]: ompt_event_target_end
   // ASYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_2]], device_num=[[DEVICE_NUM]]
@@ -93,10 +103,20 @@ int main() {
   // ASYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_3:[0-9]+]], device_num=[[DEVICE_NUM]]
   // ASYNC-SAME: kind=ompt_target_update_nowait, codeptr_ra=(nil)
 
+  // SYNC: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // SYNC-SAME: target_task_id=0, target_id=[[TARGET_ID_3]], device_mem_flag=ompt_device_mem_flag_from
+  // SYNC-SAME: host_base_addr=[[BASE_ADDR]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // SYNC-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
+
   // SYNC: {{^}}[[MASTER_ID]]: ompt_event_target_data_op
   // SYNC-SAME: target_id=[[TARGET_ID_3]], host_op_id=[[HOST_OP_ID_3:[0-9]+]], optype=ompt_target_data_transfer_from_device, src_addr=[[DEST_ADDR]]
   // SYNC-SAME: src_device_num=[[DEVICE_NUM]], dest_addr=[[SRC_ADDR]], dest_device_num=[[HOST_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
 
+  // ASYNC: {{^}}[[THREAD_ID_3]]: ompt_event_device_mem
+  // ASYNC-SAME: target_task_id=[[TARGET_TASK_ID_3]], target_id=[[TARGET_ID_3]], device_mem_flag=ompt_device_mem_flag_from
+  // ASYNC-SAME: host_base_addr=[[BASE_ADDR]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // ASYNC-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=(nil)
+  
   // ASYNC: {{^}}[[THREAD_ID_3]]: ompt_event_target_data_op
   // ASYNC-SAME: target_id=[[TARGET_ID_3]], host_op_id=[[HOST_OP_ID_3:[0-9]+]], optype=ompt_target_data_transfer_from_device, src_addr=[[DEST_ADDR]]
   // ASYNC-SAME: src_device_num=[[DEVICE_NUM]], dest_addr=[[SRC_ADDR]], dest_device_num=[[HOST_NUM]], bytes=8, codeptr_ra=(nil)
@@ -104,7 +124,7 @@ int main() {
   // SYNC: {{^}}[[MASTER_ID]]: ompt_event_target_end
   // SYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_3]], device_num=[[DEVICE_NUM]]
   // SYNC-SAME: kind=ompt_target_update, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
-  // SYNC: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_3]]
+  // SYNC: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
 
   // ASYNC: {{^}}[[THREAD_ID_3]]: ompt_event_target_end
   // ASYNC-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_3]], device_num=[[DEVICE_NUM]]

@@ -35,25 +35,25 @@ int main() {
   // CHECK-SAME: parallel_id=[[PARALLEL_ID:[0-9]+]], task_id=[[INITIAL_TASK_ID:[0-9]+]], actual_parallelism=1, index=1, flags=1
   // CHECK: host_num = [[HOST_NUM:[0-9]+]]
 
-  /** target 0 (global variable initialization) **/
-  
-  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_begin
-  // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_0:[0-9]+]], device_num=[[DEVICE_NUM:[0-9]+]]
-  // CHECK-SAME: kind=ompt_target_enter_data, codeptr_ra=(nil)
-
-  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_end
-  // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_0]], device_num=[[DEVICE_NUM]]
-  // CHECK-SAME: kind=ompt_target_enter_data, codeptr_ra=(nil)
-
   /** target 1 (target enter data) **/
 
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_begin
-  // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_1:[0-9]+]], device_num=[[DEVICE_NUM]]
+  // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_1:[0-9]+]], device_num=[[DEVICE_NUM:[0-9]+]]
   // CHECK-SAME: kind=ompt_target_enter_data, codeptr_ra=[[TARGET_RETURN_ADDRESS_1:0x[0-f]+]]
 
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_data_op
   // CHECK-SAME: target_id=[[TARGET_ID_1]], host_op_id=[[HOST_OP_ID_1:[0-9]+]], optype=ompt_target_data_alloc, src_addr=[[SRC_ADDR:0x[0-f]+]]
-  // CHECK-SAME: src_device_num=[[HOST_NUM]], dest_addr=[[DEST_ADDR:0x[0-f]+]], dest_device_num=[[DEVICE_NUM:[0-9]+]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_1]]
+  // CHECK-SAME: src_device_num=[[HOST_NUM]], dest_addr=[[DEST_ADDR:0x[0-f]+]], dest_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_1]]
+
+  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // CHECK-SAME: target_task_id=0, target_id=[[TARGET_ID_1]], device_mem_flag=ompt_device_mem_flag_alloc|ompt_device_mem_flag_associate
+  // CHECK-SAME: host_base_addr=[[HOST_BASE_ADDR:0x[0-f]+]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // CHECK-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_1]]
+  
+  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // CHECK-SAME: target_task_id=0, target_id=[[TARGET_ID_1]], device_mem_flag=ompt_device_mem_flag_to
+  // CHECK-SAME: host_base_addr=[[HOST_BASE_ADDR]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // CHECK-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_1]]
 
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_data_op
   // CHECK-SAME: target_id=[[TARGET_ID_1]], host_op_id=[[HOST_OP_ID_2:[0-9]+]], optype=ompt_target_data_transfer_to_device, src_addr=[[SRC_ADDR]]
@@ -84,7 +84,7 @@ int main() {
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_end
   // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_2]], device_num=[[DEVICE_NUM]]
   // CHECK-SAME: kind=ompt_target, codeptr_ra=[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
-  // CHECK: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_2]]
+  // CHECK: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_2]]{{[0-f][0-f]}}
 
 
   /** target 3 (target exit data) **/
@@ -92,6 +92,11 @@ int main() {
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_begin
   // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_3:[0-9]+]], device_num=[[DEVICE_NUM]]
   // CHECK-SAME: kind=ompt_target_exit_data, codeptr_ra=[[TARGET_RETURN_ADDRESS_3:0x[0-f]+]]{{[0-f][0-f]}}
+
+  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // CHECK-SAME: target_task_id=0, target_id=[[TARGET_ID_3]], device_mem_flag=ompt_device_mem_flag_from
+  // CHECK-SAME: host_base_addr=[[HOST_BASE_ADDR]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // CHECK-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
 
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_data_op
   // CHECK-SAME: target_id=[[TARGET_ID_3]], host_op_id=[[HOST_OP_ID_4:[0-9]+]], optype=ompt_target_data_transfer_from_device, src_addr=[[DEST_ADDR]]
@@ -101,6 +106,11 @@ int main() {
   // CHECK-SAME: target_id=[[TARGET_ID_3]], host_op_id=[[HOST_OP_ID_5:[0-9]+]], optype=ompt_target_data_delete, src_addr=[[SRC_ADDR]]
   // CHECK-SAME: src_device_num=[[HOST_NUM]], dest_addr=[[DEST_ADDR]], dest_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
 
+  // CHECK: {{^}}[[MASTER_ID]]: ompt_event_device_mem
+  // CHECK-SAME: target_task_id=0, target_id=[[TARGET_ID_3]], device_mem_flag=ompt_device_mem_flag_release|ompt_device_mem_flag_disassociate
+  // CHECK-SAME: host_base_addr=[[HOST_BASE_ADDR]], host_addr=[[SRC_ADDR]], host_device_num=[[HOST_NUM]]
+  // CHECK-SAME: target_addr=[[DEST_ADDR]], target_device_num=[[DEVICE_NUM]], bytes=8, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
+
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_map
   // CHECK-SAME: target_id=[[TARGET_ID_3]], nitems=1, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
   // CHECK-NEXT: {{^}}[[MASTER_ID]]: map: host_addr=[[SRC_ADDR]], device_addr=[[DEST_ADDR]], bytes=8, mapping_flag=ompt_target_map_flag_from
@@ -108,7 +118,7 @@ int main() {
   // CHECK: {{^}}[[MASTER_ID]]: ompt_event_target_end
   // CHECK-SAME: task_id=[[INITIAL_TASK_ID]], target_id=[[TARGET_ID_3]], device_num=[[DEVICE_NUM]]
   // CHECK-SAME: kind=ompt_target_exit_data, codeptr_ra=[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
-  // CHECK: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_3]]
+  // CHECK: {{^}}[[MASTER_ID]]: fuzzy_address={{.*}}[[TARGET_RETURN_ADDRESS_3]]{{[0-f][0-f]}}
 
   return 0;
 }
