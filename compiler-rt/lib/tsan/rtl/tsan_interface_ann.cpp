@@ -354,17 +354,17 @@ AnnotateMemoryIsInitialized(char *f, int l, uptr mem, uptr sz) {}
 void INTERFACE_ATTRIBUTE
 AnnotateMemoryIsUninitialized(char *f, int l, uptr mem, uptr sz) {}
 
-void INTERFACE_ATTRIBUTE AnnotateMapping(const void *src_addr,
-                                         const void *dest_addr, uptr bytes,
+void INTERFACE_ATTRIBUTE AnnotateMapping(const void *host_addr,
+                                         const void *target_addr, uptr bytes,
                                          u8 optype, const void *codeptr,
                                          const char *var_name) {
   SCOPED_ANNOTATION(AnnotateMapping);
 
   // FIXME: Shall we always assume src is host?
-  const Interval host = {reinterpret_cast<uptr>(src_addr), reinterpret_cast<uptr>(src_addr) + bytes};
-  const Interval target = {reinterpret_cast<uptr>(dest_addr), reinterpret_cast<uptr>(dest_addr) + bytes};
-  const MapInfo mh = {reinterpret_cast<uptr>(src_addr), bytes, var_name};
-  const MapInfo mt = {reinterpret_cast<uptr>(dest_addr), bytes, var_name};
+  const Interval host = {reinterpret_cast<uptr>(host_addr), reinterpret_cast<uptr>(host_addr) + bytes};
+  const Interval target = {reinterpret_cast<uptr>(target_addr), reinterpret_cast<uptr>(target_addr) + bytes};
+  const MapInfo mh = {reinterpret_cast<uptr>(host_addr), bytes, var_name};
+  const MapInfo mt = {reinterpret_cast<uptr>(target_addr), bytes, var_name};
   ASSERT(IsAppMem(host.left_end) && IsAppMem(host.right_end - 1),
          "[%p, %p] does not fall into app mem section \n",
          reinterpret_cast<char *>(host.left_end),
@@ -387,7 +387,7 @@ void INTERFACE_ATTRIBUTE AnnotateMapping(const void *src_addr,
     // Abovementioned case should not happen in t_to_h since we always keep
     // the mapping info update-to-date
     ASSERT(b, "[associate] Device address %p is already involved in a mapping \n",
-           dest_addr);
+           target_addr);
     if (!(optype & ompt_device_mem_flag_to)) {
       VsmRangeDeviceReset(host.left_end, bytes);
     }

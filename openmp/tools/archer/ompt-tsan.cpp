@@ -180,7 +180,7 @@ void __attribute__((weak))
 AnnotateNewMemory(const char *file, int line, const volatile void *cv,
                   size_t size) {}
 void __attribute__((weak))
-AnnotateMapping(const void *src_addr, const void *dest_addr, uintptr_t bytes,
+AnnotateMapping(const void *host_addr, const void *target_addr, uintptr_t bytes,
                 uint8_t optype, const void *codeptr, const char *var_name) {
   assert(false && "Fail to invoke AnnotateMapping in tsan");
 }
@@ -1188,9 +1188,9 @@ static const char *device_mem_flag_str[] = {"to",      "from",      "alloc",
 static void ompt_tsan_device_mem(ompt_data_t *target_task_data,
                                 ompt_data_t *target_data,
                                 unsigned int device_mem_flag,
-                                void *orig_base_addr, void *orig_addr,
-                                int orig_device_num, void *dest_addr,
-                                int dest_device_num, size_t bytes,
+                                void *host_base_addr, void *host_addr,
+                                int host_device_num, void *target_addr,
+                                int target_device_num, size_t bytes,
                                 const void *codeptr_ra, const char *var_name) {                              
   if (archer_flags->verbose) {
     char buf[200];
@@ -1206,12 +1206,12 @@ static void ompt_tsan_device_mem(ompt_data_t *target_task_data,
       }
       bit <<= 1;
     }
-    VPrintf("ompt tsan device mem, variable %s, orig_addr is %p, dev_addr is %p, size is "
+    VPrintf("ompt tsan device mem, variable %s, host_addr is %p, target_addr is %p, size is "
             "%lu, mapping type (%#03x) is %s\n",
             (var_name ? var_name : "unknown"), 
-            orig_addr, dest_addr, bytes, device_mem_flag, buf);
+            host_addr, target_addr, bytes, device_mem_flag, buf);
   }
-  AnnotateMapping(orig_addr, dest_addr, bytes, device_mem_flag, codeptr_ra, var_name);
+  AnnotateMapping(host_addr, target_addr, bytes, device_mem_flag, codeptr_ra, var_name);
 }
 
 static const char *target_kind_str[] = {nullptr,
