@@ -121,11 +121,17 @@ OmptTargetMapping::OmptTargetMapping(ConstructorType Ctor,
 }
 
 OmptTargetMapping::~OmptTargetMapping() {
-  if (Active && Capacity) {
-    delete[] HostAddr;
-    delete[] DeviceAddr;
-    delete[] Bytes;
-    delete[] MappingFlags;
+  if (Active) {
+    if (Size) {
+      libomp_ompt_callback_target_map_emi(Size, HostAddr, DeviceAddr, Bytes,
+                                          MappingFlags, CodePtr);
+    }
+    if (Capacity) {
+      delete[] HostAddr;
+      delete[] DeviceAddr;
+      delete[] Bytes;
+      delete[] MappingFlags;
+    }
   }
 }
 
@@ -181,20 +187,13 @@ void OmptTargetMapping::addMapping(void *HstAddr, void *TgtAddr, size_t Byte,
   }
 }
 
-void OmptTargetMapping::invokeCallback() {
-  if (Active && Size) {
-    libomp_ompt_callback_target_map_emi(Size, HostAddr, DeviceAddr, Bytes,
-                                        MappingFlags, CodePtr);
-  }
-}
-
-OmptDeviceMem::OmptDeviceMem(void *OrigBaseAddr, void *OrigAddr,
-                             int OrigDeviceNum, void *DestAddr,
-                             int DestDeviceNum, size_t Bytes, void *CodePtr,
+OmptDeviceMem::OmptDeviceMem(void *HostBaseAddr, void *HostAddr,
+                             int HostDeviceNum, void *TargetAddr,
+                             int TargetDeviceNum, size_t Bytes, void *CodePtr,
                              char *VarName)
-    : DeviceMemFlag(0), OrigBaseAddr(OrigBaseAddr), OrigAddr(OrigAddr),
-      OrigDeviceNum(OrigDeviceNum), DestAddr(DestAddr),
-      DestDeviceNum(DestDeviceNum), Bytes(Bytes), CodePtr(CodePtr),
+    : DeviceMemFlag(0), HostBaseAddr(HostBaseAddr), HostAddr(HostAddr),
+      HostDeviceNum(HostDeviceNum), TargetAddr(TargetAddr),
+      TargetDeviceNum(TargetDeviceNum), Bytes(Bytes), CodePtr(CodePtr),
       VarName(VarName) {
   this->Active =
       OmptTargetEnabled.enabled && OmptTargetEnabled.ompt_callback_device_mem;
@@ -206,14 +205,14 @@ void OmptDeviceMem::addTargetDataOp(unsigned int Flag) {
   }
 }
 
-void OmptDeviceMem::setDestAddr(void *DestAddr) {
-  this->DestAddr = DestAddr;
+void OmptDeviceMem::setTargetAddr(void *TargetAddr) {
+  this->TargetAddr = TargetAddr;
 }
 
 void OmptDeviceMem::invokeCallback() {
   if (Active && DeviceMemFlag) {
-    libomp_ompt_callback_device_mem(DeviceMemFlag, OrigBaseAddr, OrigAddr,
-                                    OrigDeviceNum, DestAddr, DestDeviceNum,
+    libomp_ompt_callback_device_mem(DeviceMemFlag, HostBaseAddr, HostAddr,
+                                    HostDeviceNum, TargetAddr, TargetDeviceNum,
                                     Bytes, CodePtr, VarName);
     DeviceMemFlag = 0;
   }
@@ -221,8 +220,8 @@ void OmptDeviceMem::invokeCallback() {
 
 OmptDeviceMem::~OmptDeviceMem() {
   if (Active && DeviceMemFlag) {
-    libomp_ompt_callback_device_mem(DeviceMemFlag, OrigBaseAddr, OrigAddr,
-                                    OrigDeviceNum, DestAddr, DestDeviceNum,
+    libomp_ompt_callback_device_mem(DeviceMemFlag, HostBaseAddr, HostAddr,
+                                    HostDeviceNum, TargetAddr, TargetDeviceNum,
                                     Bytes, CodePtr, VarName);
   }
 }

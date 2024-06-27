@@ -77,29 +77,28 @@ public:
   OmptTargetMapping(ConstructorType Ctor, unsigned int Capacity, void *CodePtr);
   ~OmptTargetMapping();
   void addMapping(void *HstAddr, void *TgtAddr, size_t Byte, int64_t ArgType);
-  void invokeCallback();
 };
 
 class OmptDeviceMem {
 private:
   unsigned int DeviceMemFlag;
-  void *OrigBaseAddr;
-  void *OrigAddr;
-  int OrigDeviceNum;
-  void *DestAddr;
-  int DestDeviceNum;
+  void *HostBaseAddr;
+  void *HostAddr;
+  int HostDeviceNum;
+  void *TargetAddr;
+  int TargetDeviceNum;
   size_t Bytes;
   void *CodePtr;
   char *VarName;
   bool Active;
 
 public:
-  OmptDeviceMem(void *OrigBaseAddr, void *OrigAddr, int OrigDeviceNum,
-                void *DestAddr, int DestDeviceNum, size_t Bytes, void *CodePtr,
+  OmptDeviceMem(void *HostBaseAddr, void *HostAddr, int HostDeviceNum,
+                void *TargetAddr, int TargetDeviceNum, size_t Bytes, void *CodePtr,
                 char *VarName);
   ~OmptDeviceMem();
   void addTargetDataOp(unsigned int Flag);
-  void setDestAddr(void *DestAddr);
+  void setTargetAddr(void *TargetAddr);
   void invokeCallback();
 };
 #endif // LIBOMPTARGET_OMPT_TARGET_H

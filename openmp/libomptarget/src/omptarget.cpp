@@ -102,10 +102,8 @@ static int initLibrary(DeviceTy &Device) {
   {
     std::lock_guard<decltype(PM->TrlTblMtx)> LG(PM->TrlTblMtx);
 #if OMPTARGET_OMPT_SUPPORT
-    OmptTarget MappingGlobals{ompt_target_enter_data, DeviceId, nullptr};
-    OmptTargetMapping Mapping{
-        OmptTargetMapping::TARGET_DATA_BEGIN,
-        (unsigned int)PM->HostEntriesBeginRegistrationOrder.size(), nullptr};
+    bool OmptTargetIssued = false;
+    OmptTarget *MappingGlobals = nullptr;
 #endif
 
     for (auto *HostEntriesBegin : PM->HostEntriesBeginRegistrationOrder) {
@@ -196,6 +194,11 @@ static int initLibrary(DeviceTy &Device) {
               false /*UseHoldRefCount*/, CurrHostEntry->name,
               true /*IsRefCountINF*/));
 #if OMPTARGET_OMPT_SUPPORT
+          if (!OmptTargetIssued) {
+            OmptTargetIssued = true;
+            MappingGlobals = new OmptTarget{ompt_target_enter_data, DeviceId, nullptr};
+          }
+          OmptTargetMapping Mapping{OmptTargetMapping::TARGET_DATA_BEGIN, 1, nullptr};
           Mapping.addMapping(CurrHostEntry->addr, CurrDeviceEntry->addr,
                              CurrDeviceEntry->size, OMP_TGT_MAPTYPE_TO);
           OmptDeviceMem Mem{CurrHostEntry->addr,
@@ -213,7 +216,9 @@ static int initLibrary(DeviceTy &Device) {
       }
     }
 #if OMPTARGET_OMPT_SUPPORT
-    Mapping.invokeCallback();
+    if (MappingGlobals) {
+      delete MappingGlobals;
+    }
 #endif
   }
 
@@ -655,10 +660,6 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     }
   }
 
-#if OMPTARGET_OMPT_SUPPORT
-  Mapping.invokeCallback();
-#endif
-
   return OFFLOAD_SUCCESS;
 }
 
@@ -1001,10 +1002,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       }
     }
   }
-
-#if OMPTARGET_OMPT_SUPPORT
-  Mapping.invokeCallback();
-#endif
 
   return Ret;
 }

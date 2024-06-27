@@ -48,7 +48,7 @@ libomp_ompt_callback_target_map_emi(unsigned int nitems, void **host_addr,
                                     unsigned int *mapping_flags, void *codeptr);
 
 _OMP_EXTERN OMPT_INTERFACE_ATTRIBUTE void libomp_ompt_callback_device_mem(
-    unsigned int device_mem_flag, void *orig_base_addr, void *orig_addr,
-    int orig_device_num, void *dest_base_addr, int dest_device_num,
+    unsigned int device_mem_flag, void *host_base_addr, void *host_addr,
+    int host_device_num, void *target_addr, int target_device_num,
     size_t bytes, void *codeptr, char *var_name);
 #endif // __OMPT_TARGET_API_H__

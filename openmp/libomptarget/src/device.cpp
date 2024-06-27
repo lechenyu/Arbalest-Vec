@@ -341,7 +341,7 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
   }
 
 #if OMPTARGET_OMPT_SUPPORT
-  Mem.setDestAddr(TargetPointer);
+  Mem.setTargetAddr(TargetPointer);
 #endif 
  
   // If the target pointer is valid, and we need to transfer data, issue the
