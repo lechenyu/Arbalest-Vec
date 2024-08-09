@@ -20,9 +20,8 @@
 
 using namespace __tsan;
 
-void __tsan_init(u8 enable_arbalest) {
-  arbalest_enabled = enable_arbalest;
-  Initialize(cur_thread_init()); 
+void __tsan_init() {
+  Initialize(cur_thread_init());
 }
 
 void __tsan_flush_memory() {

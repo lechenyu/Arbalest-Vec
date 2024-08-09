@@ -27,7 +27,10 @@ extern "C" {
 #endif
 
 #if !SANITIZER_GO
-
+SANITIZER_INTERFACE_ATTRIBUTE void __arbalest_init(
+    __sanitizer::u32 global_num = 0, void **global_ptr = nullptr,
+    __sanitizer::u64 *global_size = nullptr, char **global_name = nullptr);
+    
 SANITIZER_INTERFACE_ATTRIBUTE void __arbalest_read1(void *addr);
 SANITIZER_INTERFACE_ATTRIBUTE void __arbalest_read2(void *addr);
 SANITIZER_INTERFACE_ATTRIBUTE void __arbalest_read4(void *addr);
@@ -54,7 +57,7 @@ SANITIZER_INTERFACE_ATTRIBUTE void __arbalest_check_bound(void *base, void *star
 
 // This function should be called at the very beginning of the process,
 // before any instrumented code is executed and before any call to malloc.
-SANITIZER_INTERFACE_ATTRIBUTE void __tsan_init(__sanitizer::u8 enable_arbalest = 0);
+SANITIZER_INTERFACE_ATTRIBUTE void __tsan_init();
 
 SANITIZER_INTERFACE_ATTRIBUTE void __tsan_flush_memory();
 

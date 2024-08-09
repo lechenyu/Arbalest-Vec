@@ -105,6 +105,9 @@ STATISTIC(NumOmittedNonCaptured, "Number of accesses ignored due to capturing");
 const char kTsanModuleCtorName[] = "tsan.module_ctor";
 const char kTsanInitName[] = "__tsan_init";
 
+const char kArbalestModuleCtorName[] = "arbalest.module_ctor";
+const char kArbalestInitName[] = "__arbalest_init";
+
 namespace {
 
 /// ThreadSanitizer: instrument the code in module to find races.
@@ -195,19 +198,86 @@ private:
   Arbalest Arb;
 };
 
-void insertModuleCtor(Module &M) {
-  if (ClEnableArbalest) {
-    errs() << "Turn on Arbalest-related instrumentation" << (ClOMPDebugMode ? " with" : " without") << " debug info\n";
-  } else {
-    errs() << "Turn off Arbalest-related instrumentation\n";
+uint32_t insertGlobalVariableInfo(Module &M, SmallVector<Constant *> &GlobInfo) {
+  SmallVector<GlobalVariable*, 8> UserDefinedGlobs;
+  for (GlobalVariable &G : M.globals()) {
+    if (!G.getName().empty() && !G.getName().startswith(".") && !G.getName().startswith("llvm")) {
+      UserDefinedGlobs.push_back(&G);
+    }
   }
-  IntegerType *U8 = Type::getInt8Ty(M.getContext());
+  if (!UserDefinedGlobs.empty()) {
+    SmallVector<uint64_t, 8> GVS;
+    SmallVector<Constant*, 8> GVN;
+    SmallVector<Constant*, 8> GV;
+    for (GlobalVariable *GP : UserDefinedGlobs) {
+      GVS.push_back(M.getDataLayout().getTypeStoreSize(GP->getValueType()).getFixedSize());
+      Constant *VarNameInitializer = ConstantDataArray::getString(M.getContext(), GP->getName());
+      GlobalVariable *VarName = new GlobalVariable(M, VarNameInitializer->getType(), false,
+                                                   GlobalValue::PrivateLinkage, VarNameInitializer);
+      GVN.push_back(VarName);
+      GV.push_back(GP);
+    }
+    ArrayType *SizeArrayTy = ArrayType::get(Type::getInt64Ty(M.getContext()), GVS.size());
+    ArrayType *PtrArrayTy = ArrayType::get(Type::getVoidTy(M.getContext())->getPointerTo(), GV.size());
+    ArrayType *NameArrayTy = ArrayType::get(Type::getInt8Ty(M.getContext())->getPointerTo(), GVN.size());
+    GlobalVariable *GlobalsSize = new GlobalVariable(
+        M, SizeArrayTy, false, GlobalValue::PrivateLinkage,
+        ConstantDataArray::get(M.getContext(), ArrayRef<uint64_t>(GVS)), "arbalest_global_size");
+    GlobalVariable *GlobalsName = new GlobalVariable(
+        M, NameArrayTy, false, GlobalValue::PrivateLinkage,
+        ConstantArray::get(NameArrayTy, ArrayRef<Constant *>(GVN)), "arbalest_global_name");
+    GlobalVariable *Globals = new GlobalVariable(
+        M, PtrArrayTy, false, GlobalValue::PrivateLinkage,
+        ConstantArray::get(PtrArrayTy, ArrayRef<Constant *>(GV)), "arbalest_global_ptr");
+    GlobInfo[0] = Globals;
+    GlobInfo[1] = GlobalsSize;
+    GlobInfo[2] = GlobalsName;
+    return UserDefinedGlobs.size();
+  } else {
+    return 0;
+  }
+}
+
+void insertModuleCtor(Module &M) {
+  SmallVector<Constant *> GlobInfo{nullptr, nullptr, nullptr};
+  uint32_t UserDefinedGlobNum = 0;
+  bool IsHostModule = (M.getTargetTriple() == "x86_64-unknown-linux-gnu");
+  if (IsHostModule) {
+    if (ClEnableArbalest) {
+      errs() << "Turn on Arbalest-related instrumentation" << (ClOMPDebugMode ? " with" : " without") << " debug info\n";
+      UserDefinedGlobNum = insertGlobalVariableInfo(M, GlobInfo);
+    } else {
+      errs() << "Turn off Arbalest-related instrumentation\n";
+    }
+  }
+
   getOrCreateSanitizerCtorAndInitFunctions(
-      M, kTsanModuleCtorName, kTsanInitName, /*InitArgTypes=*/{U8},
-      /*InitArgs=*/{ConstantInt::get(U8, ClEnableArbalest ? 1 : 0, false)},
+      M, kTsanModuleCtorName, kTsanInitName, /*InitArgTypes=*/{},
+      /*InitArgs=*/{},
       // This callback is invoked when the functions are created the first
       // time. Hook them into the global ctors list in that case:
       [&](Function *Ctor, FunctionCallee) { appendToGlobalCtors(M, Ctor, 0); });
+
+  if (IsHostModule && ClEnableArbalest) {
+    IntegerType *U32 = Type::getInt32Ty(M.getContext());
+    PointerType *PtrPtr =
+        Type::getVoidTy(M.getContext())->getPointerTo()->getPointerTo();
+    PointerType *U64Ptr = Type::getInt64PtrTy(M.getContext());
+    PointerType *StrPtr = Type::getInt8PtrTy(M.getContext())->getPointerTo();
+    getOrCreateSanitizerCtorAndInitFunctions(
+        M, kArbalestModuleCtorName, kArbalestInitName,
+        /*InitArgTypes=*/{U32, PtrPtr, U64Ptr, StrPtr},
+        /*InitArgs=*/
+        {ConstantInt::get(U32, UserDefinedGlobNum),
+         GlobInfo[0] ? GlobInfo[0] : ConstantPointerNull::get(PtrPtr),
+         GlobInfo[1] ? GlobInfo[1] : ConstantPointerNull::get(U64Ptr),
+         GlobInfo[2] ? GlobInfo[2] : ConstantPointerNull::get(StrPtr)},
+        // This callback is invoked when the functions are created the first
+        // time. Hook them into the global ctors list in that case:
+        [&](Function *Ctor, FunctionCallee) {
+          appendToGlobalCtors(M, Ctor, 0);
+        });
+  }
 }
 
 void setOmpOutlinedFuncPrefix(Module &M) {

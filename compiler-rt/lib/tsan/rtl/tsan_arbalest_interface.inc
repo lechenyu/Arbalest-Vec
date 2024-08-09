@@ -1,8 +1,24 @@
 #include "tsan_interface.h"
+#include "tsan_rtl.h"
+#include "tsan_shadow.h"
 
 #define CALLERPC ((uptr)__builtin_return_address(0))
 
 using namespace __tsan;
+
+void __arbalest_init(u32 global_num, void **global_ptr,
+                     u64 *global_size, char **global_name) {
+  arbalest_enabled = true;
+  // VPrintf("arbalest init global num = %u\n", global_num);
+  for (u32 i = 0; i < global_num; i++) {
+    // VPrintf("  global[%u] %s, ptr = %p, size = %llu\n", i, global_name[i],
+    //       global_ptr[i], global_size[i]);
+    uptr global_start = reinterpret_cast<uptr>(global_ptr[i]);
+    ctx->globals.insert(Interval{global_start, global_start + global_size[i]}, 
+                        MapInfo{global_start, global_size[i], global_name[i]});
+    VsmRangeSet(global_start, global_size[i], VariableStateMachine::kHostMask);
+  }
+}
 
 void __arbalest_read1(void *addr) {
   CheckVsm(cur_thread(), CALLERPC, (uptr)addr, 1);

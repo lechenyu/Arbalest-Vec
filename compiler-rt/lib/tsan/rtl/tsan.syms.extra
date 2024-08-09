@@ -29,6 +29,7 @@ Annotate*
 WTFAnnotate*
 RunningOnValgrind
 ValgrindSlowdown
+__arbalest_init
 __arbalest_read*
 __arbalest_write*
 __arbalest_unaligned*

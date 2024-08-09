@@ -587,6 +587,16 @@ ALWAYS_INLINE USED void CheckMappingBound(ThreadState *thr, uptr pc, Node *mappi
       mapping->info.size = block_begin + mb->siz - host_start;
       report_error = true;
     }
+  } else {
+    Node *global_info = ctx->globals.find({host_start, host_start + 1});
+    if (global_info) {
+      uptr bound = global_info->info.start + global_info->info.size;
+      if (host_start + size > bound) {
+        mapping->info.size = bound - host_start;
+        report_error = true;
+      }
+    }
+
   }
   if (report_error) {
     if (UNLIKELY(!TryTraceMemoryAccess(thr, pc, host_start, size, kAccessRead))) {

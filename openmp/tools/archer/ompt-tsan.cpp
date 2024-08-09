@@ -36,6 +36,9 @@
 
 #include "omp-tools.h"
 
+// #define CLIENT_TOOL_LIBRARIES_VAR "ARCHER_TOOL_LIBRARIES"
+// #include "ompt-multiplex.h"
+
 // Define attribute that indicates that the fall through from the previous
 // case label is intentional and should not be diagnosed by a compiler
 //   Code from libcxx/include/__config

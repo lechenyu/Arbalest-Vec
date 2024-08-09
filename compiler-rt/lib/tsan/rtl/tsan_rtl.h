@@ -391,6 +391,7 @@ struct Context {
 #endif
   IntervalTree t_to_h;
   IntervalTree h_to_t;
+  IntervalTree globals;
   //TODO: use verbose to control output? maybe we don't need this variable
   bool arbalest_verbose;
 };

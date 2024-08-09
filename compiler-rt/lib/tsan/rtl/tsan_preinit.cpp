@@ -20,7 +20,7 @@
 // exported.
 // This code linked into the main executable when -fsanitize=thread is in
 // the link flags. It can only use exported interface functions.
-__attribute__((section(".preinit_array"), used))
-void (*__local_tsan_preinit)(__sanitizer::u8) = __tsan_init;
+__attribute__((section(".preinit_array"),
+               used)) void (*__local_tsan_preinit)() = __tsan_init;
 
 #endif

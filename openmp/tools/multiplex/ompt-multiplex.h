@@ -30,6 +30,7 @@
 
 static ompt_set_callback_t ompt_multiplex_set_callback;
 static ompt_get_task_info_t ompt_multiplex_get_task_info;
+static ompt_get_unique_id_t ompt_multiplex_get_unique_id;
 static ompt_get_thread_data_t ompt_multiplex_get_thread_data;
 static ompt_get_parallel_info_t ompt_multiplex_get_parallel_info;
 
@@ -38,19 +39,8 @@ static ompt_get_parallel_info_t ompt_multiplex_get_parallel_info;
 #error CLIENT_TOOL_LIBRARIES_VAR should be defined before including of ompt-multiplex.h
 #endif
 
-#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_TASK_DATA) &&                         \
-    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA)
-#error OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA must be set if OMPT_MULTIPLEX_CUSTOM_DELETE_TASK_DATA is set
-#endif
-
-#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_PARALLEL_DATA) &&                     \
-    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_PARALLEL_DATA)
-#error OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_PARALLEL_DATA must be set if OMPT_MULTIPLEX_CUSTOM_DELETE_PARALLEL_DATA is set
-#endif
-
-#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_THREAD_DATA) &&                       \
-    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_THREAD_DATA)
-#error OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_THREAD_DATA must be set if OMPT_MULTIPLEX_CUSTOM_DELETE_THREAD_DATA is set
+#if defined(CUSTOM_DELETE_DATA) && !defined(CUSTOM_GET_CLIENT_DATA)
+#error CUSTOM_GET_CLIENT_DATA must be set if CUSTOM_DELETE_DATA is set
 #endif
 
 #define OMPT_API_ROUTINE static
@@ -63,9 +53,6 @@ static ompt_get_parallel_info_t ompt_multiplex_get_parallel_info;
   macro(callback_task_create, ompt_callback_task_create_t, 5);                 \
   macro(callback_task_schedule, ompt_callback_task_schedule_t, 6);             \
   macro(callback_implicit_task, ompt_callback_implicit_task_t, 7);             \
-  macro(callback_target, ompt_callback_target_t, 8);                           \
-  macro(callback_target_data_op, ompt_callback_target_data_op_t, 9);           \
-  macro(callback_target_submit, ompt_callback_target_submit_t, 10);            \
   macro(callback_control_tool, ompt_callback_control_tool_t, 11);              \
   macro(callback_device_initialize, ompt_callback_device_initialize_t, 12);    \
   macro(callback_device_finalize, ompt_callback_device_finalize_t, 13);        \
@@ -76,8 +63,7 @@ static ompt_get_parallel_info_t ompt_multiplex_get_parallel_info;
   macro(callback_dependences, ompt_callback_dependences_t, 18);                \
   macro(callback_task_dependence, ompt_callback_task_dependence_t, 19);        \
   macro(callback_work, ompt_callback_work_t, 20);                              \
-  macro(callback_master, ompt_callback_master_t, 21);                          \
-  macro(callback_target_map, ompt_callback_target_map_t, 22);                  \
+  macro(callback_masked, ompt_callback_masked_t, 21);                          \
   macro(callback_sync_region, ompt_callback_sync_region_t, 23);                \
   macro(callback_lock_init, ompt_callback_mutex_acquire_t, 24);                \
   macro(callback_lock_destroy, ompt_callback_mutex_t, 25);                     \
@@ -87,12 +73,25 @@ static ompt_get_parallel_info_t ompt_multiplex_get_parallel_info;
   macro(callback_flush, ompt_callback_flush_t, 29);                            \
   macro(callback_cancel, ompt_callback_cancel_t, 30);                          \
   macro(callback_reduction, ompt_callback_sync_region_t, 31);                  \
-  macro(callback_dispatch, ompt_callback_dispatch_t, 32);
+  macro(callback_dispatch, ompt_callback_dispatch_t, 32);                      \
+  macro(callback_target_emi, ompt_callback_target_emi_t, 33);                  \
+  macro(callback_target_data_op_emi, ompt_callback_target_data_op_emi_t, 34);  \
+  macro(callback_target_submit_emi, ompt_callback_target_submit_emi_t, 35);    \
+  macro(callback_target_map_emi, ompt_callback_target_map_emi_t, 36);          \
+  macro(callback_device_mem, ompt_callback_device_mem_t, 37);                  \
+  macro(callback_error, ompt_callback_error_t, 38);
+
+#define OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT_NOEMI(macro)                       \
+  macro(callback_target, ompt_callback_target_t, 8);                           \
+  macro(callback_target_data_op, ompt_callback_target_data_op_t, 9);           \
+  macro(callback_target_submit, ompt_callback_target_submit_t, 10);            \
+  macro(callback_target_map, ompt_callback_target_map_t, 22);
 
 typedef struct ompt_multiplex_callbacks_s {
 #define ompt_event_macro(event, callback, eventid) callback ompt_##event
 
   OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT(ompt_event_macro)
+  OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT_NOEMI(ompt_event_macro)
 
 #undef ompt_event_macro
 } ompt_multiplex_callbacks_t;
@@ -101,6 +100,7 @@ typedef struct ompt_multiplex_callback_implementation_status_s {
 #define ompt_event_macro(event, callback, eventid) int ompt_##event
 
   OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT(ompt_event_macro)
+  OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT_NOEMI(ompt_event_macro)
 
 #undef ompt_event_macro
 } ompt_multiplex_callback_implementation_status_t;
@@ -120,7 +120,8 @@ typedef struct ompt_multiplex_data_pair_s {
 
 #if !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_THREAD_DATA) ||                  \
     !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_PARALLEL_DATA) ||                \
-    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA)
+    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA) ||                    \
+    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA)
 static ompt_multiplex_data_pair_t *
 ompt_multiplex_allocate_data_pair(ompt_data_t *data_pointer) {
   data_pointer->ptr = malloc(sizeof(ompt_multiplex_data_pair_t));
@@ -136,11 +137,16 @@ ompt_multiplex_allocate_data_pair(ompt_data_t *data_pointer) {
 }
 
 static void ompt_multiplex_free_data_pair(ompt_data_t *data_pointer) {
-  free((*data_pointer).ptr);
+  if (data_pointer && data_pointer->ptr) {
+    free((*data_pointer).ptr);
+    data_pointer->ptr = NULL;
+  }
 }
 
 static ompt_data_t *ompt_multiplex_get_own_ompt_data(ompt_data_t *data) {
   if (!data)
+    return NULL;
+  if (!data->ptr)
     return NULL;
   ompt_multiplex_data_pair_t *data_pair =
       (ompt_multiplex_data_pair_t *)data->ptr;
@@ -150,13 +156,16 @@ static ompt_data_t *ompt_multiplex_get_own_ompt_data(ompt_data_t *data) {
 static ompt_data_t *ompt_multiplex_get_client_ompt_data(ompt_data_t *data) {
   if (!data)
     return NULL;
+  if (!data->ptr)
+    return NULL;
   ompt_multiplex_data_pair_t *data_pair =
       (ompt_multiplex_data_pair_t *)data->ptr;
   return &(data_pair->client_data);
 }
 #endif //! defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_THREAD_DATA) ||
        //! !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_PARALLEL_DATA) ||
-       //! !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA)
+       //! !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA) ||
+       //! !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA)
 
 static ompt_data_t *ompt_multiplex_get_own_thread_data(ompt_data_t *data) {
 #ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_THREAD_DATA
@@ -176,6 +185,14 @@ static ompt_data_t *ompt_multiplex_get_own_parallel_data(ompt_data_t *data) {
 
 static ompt_data_t *ompt_multiplex_get_own_task_data(ompt_data_t *data) {
 #ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA
+  return ompt_multiplex_get_own_ompt_data(data);
+#else
+  return data;
+#endif
+}
+
+static ompt_data_t *ompt_multiplex_get_own_target_data(ompt_data_t *data) {
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA
   return ompt_multiplex_get_own_ompt_data(data);
 #else
   return data;
@@ -203,6 +220,14 @@ static ompt_data_t *ompt_multiplex_get_client_task_data(ompt_data_t *data) {
   return ompt_multiplex_get_client_ompt_data(data);
 #else
   return OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA(data);
+#endif
+}
+
+static ompt_data_t *ompt_multiplex_get_client_target_data(ompt_data_t *data) {
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA
+  return ompt_multiplex_get_own_ompt_data(data);
+#else
+  return OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA(data);
 #endif
 }
 
@@ -431,17 +456,17 @@ static void ompt_multiplex_callback_work(ompt_work_t wstype,
   }
 }
 
-static void ompt_multiplex_callback_master(ompt_scope_endpoint_t endpoint,
+static void ompt_multiplex_callback_masked(ompt_scope_endpoint_t endpoint,
                                            ompt_data_t *parallel_data,
                                            ompt_data_t *task_data,
                                            const void *codeptr_ra) {
-  if (ompt_multiplex_own_callbacks.ompt_callback_master) {
-    ompt_multiplex_own_callbacks.ompt_callback_master(
+  if (ompt_multiplex_own_callbacks.ompt_callback_masked) {
+    ompt_multiplex_own_callbacks.ompt_callback_masked(
         endpoint, ompt_multiplex_get_own_parallel_data(parallel_data),
         ompt_multiplex_get_own_task_data(task_data), codeptr_ra);
   }
-  if (ompt_multiplex_client_callbacks.ompt_callback_master) {
-    ompt_multiplex_client_callbacks.ompt_callback_master(
+  if (ompt_multiplex_client_callbacks.ompt_callback_masked) {
+    ompt_multiplex_client_callbacks.ompt_callback_masked(
         endpoint, ompt_multiplex_get_client_parallel_data(parallel_data),
         ompt_multiplex_get_client_task_data(task_data), codeptr_ra);
   }
@@ -828,6 +853,265 @@ static void ompt_multiplex_callback_dispatch(ompt_data_t *parallel_data,
   }
 }
 
+static void ompt_callback_target_emi_wrapper_own(
+    ompt_target_t kind, ompt_scope_endpoint_t endpoint, int device_num,
+    ompt_data_t *task_data, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, const void *codeptr_ra) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    target_data->value = ompt_multiplex_get_unique_id();
+  }
+  ompt_multiplex_own_callbacks.ompt_callback_target(
+      kind, endpoint, device_num, task_data, target_data->value, codeptr_ra);
+}
+
+static void ompt_callback_target_emi_wrapper_client(
+    ompt_target_t kind, ompt_scope_endpoint_t endpoint, int device_num,
+    ompt_data_t *task_data, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, const void *codeptr_ra) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    target_data->value = ompt_multiplex_get_unique_id();
+  }
+  ompt_multiplex_client_callbacks.ompt_callback_target(
+      kind, endpoint, device_num, task_data, target_data->value, codeptr_ra);
+}
+
+static void ompt_multiplex_callback_target_emi(
+    ompt_target_t kind, ompt_scope_endpoint_t endpoint, int device_num,
+    ompt_data_t *task_data, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, const void *codeptr_ra) {
+  if (endpoint == ompt_scope_begin) {
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA
+    ompt_multiplex_allocate_data_pair(target_data);
+#endif
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA
+    if (target_task_data && target_task_data->ptr == NULL)
+      ompt_multiplex_allocate_data_pair(target_task_data);
+#endif
+    if (ompt_multiplex_own_callbacks.ompt_callback_target_emi) {
+      ompt_multiplex_own_callbacks.ompt_callback_target_emi(
+          kind, endpoint, device_num,
+          ompt_multiplex_get_own_task_data(task_data),
+          ompt_multiplex_get_own_task_data(target_task_data),
+          ompt_multiplex_get_own_target_data(target_data), codeptr_ra);
+    }
+    if (ompt_multiplex_client_callbacks.ompt_callback_target_emi) {
+      ompt_multiplex_client_callbacks.ompt_callback_target_emi(
+          kind, endpoint, device_num,
+          ompt_multiplex_get_client_task_data(task_data),
+          ompt_multiplex_get_client_task_data(target_task_data),
+          ompt_multiplex_get_client_target_data(target_data), codeptr_ra);
+    }
+  } else {
+// defines to make sure, callbacks are called in correct order depending on
+// defines set by the user
+#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_TARGET_DATA) ||                       \
+    !defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA)
+    if (ompt_multiplex_own_callbacks.ompt_callback_target_emi) {
+      ompt_multiplex_own_callbacks.ompt_callback_target_emi(
+          kind, endpoint, device_num,
+          ompt_multiplex_get_own_task_data(task_data),
+          ompt_multiplex_get_own_task_data(target_task_data),
+          ompt_multiplex_get_own_target_data(target_data), codeptr_ra);
+    }
+#endif
+
+    if (ompt_multiplex_client_callbacks.ompt_callback_target_emi) {
+      ompt_multiplex_client_callbacks.ompt_callback_target_emi(
+          kind, endpoint, device_num,
+          ompt_multiplex_get_client_task_data(task_data),
+          ompt_multiplex_get_client_task_data(target_task_data),
+          ompt_multiplex_get_client_target_data(target_data), codeptr_ra);
+    }
+
+#if defined(OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA) &&                   \
+    !defined(OMPT_MULTIPLEX_CUSTOM_DELETE_TARGET_DATA)
+    if (ompt_multiplex_own_callbacks.ompt_callback_target_emi) {
+      ompt_multiplex_own_callbacks.ompt_callback_target_emi(
+          kind, endpoint, device_num,
+          ompt_multiplex_get_own_task_data(task_data),
+          ompt_multiplex_get_own_task_data(target_task_data),
+          ompt_multiplex_get_own_target_data(target_data), codeptr_ra);
+    }
+#endif
+
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TARGET_DATA
+    ompt_multiplex_free_data_pair(target_data);
+#endif
+
+#ifndef OMPT_MULTIPLEX_CUSTOM_GET_CLIENT_TASK_DATA
+    ompt_multiplex_free_data_pair(target_task_data);
+#endif
+
+#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_TARGET_DATA)
+    OMPT_MULTIPLEX_CUSTOM_DELETE_TARGET_DATA(target_data);
+#endif
+
+#if defined(OMPT_MULTIPLEX_CUSTOM_DELETE_TASK_DATA)
+    OMPT_MULTIPLEX_CUSTOM_DELETE_TASK_DATA(target_task_data);
+#endif
+  }
+}
+
+static void ompt_callback_target_data_op_emi_wrapper_own(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, ompt_id_t *host_op_id,
+    ompt_target_data_op_t optype, void *src_addr, int src_device_num,
+    void *dest_addr, int dest_device_num, size_t bytes,
+    const void *codeptr_ra) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    if (*host_op_id == 0)
+      *host_op_id = ompt_multiplex_get_unique_id();
+  }
+  if (endpoint == ompt_scope_end || endpoint == ompt_scope_beginend) {
+    ompt_multiplex_own_callbacks.ompt_callback_target_data_op(
+        target_data->value, *host_op_id, optype, src_addr, src_device_num,
+        dest_addr, dest_device_num, bytes, codeptr_ra);
+  }
+}
+
+static void ompt_callback_target_data_op_emi_wrapper_client(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, ompt_id_t *host_op_id,
+    ompt_target_data_op_t optype, void *src_addr, int src_device_num,
+    void *dest_addr, int dest_device_num, size_t bytes,
+    const void *codeptr_ra) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    if (*host_op_id == 0)
+      *host_op_id = ompt_multiplex_get_unique_id();
+  }
+  if (endpoint == ompt_scope_end || endpoint == ompt_scope_beginend) {
+    ompt_multiplex_client_callbacks.ompt_callback_target_data_op(
+        target_data->value, *host_op_id, optype, src_addr, src_device_num,
+        dest_addr, dest_device_num, bytes, codeptr_ra);
+  }
+}
+
+static void ompt_multiplex_callback_target_data_op_emi(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_task_data,
+    ompt_data_t *target_data, ompt_id_t *host_op_id,
+    ompt_target_data_op_t optype, void *src_addr, int src_device_num,
+    void *dest_addr, int dest_device_num, size_t bytes,
+    const void *codeptr_ra) {
+  if (ompt_multiplex_own_callbacks.ompt_callback_target_data_op_emi) {
+    ompt_multiplex_own_callbacks.ompt_callback_target_data_op_emi(
+        endpoint, ompt_multiplex_get_own_task_data(target_task_data),
+        ompt_multiplex_get_own_target_data(target_data), host_op_id, optype,
+        src_addr, src_device_num, dest_addr, bytes, dest_device_num,
+        codeptr_ra);
+  }
+  if (ompt_multiplex_client_callbacks.ompt_callback_target_data_op_emi) {
+    ompt_multiplex_client_callbacks.ompt_callback_target_data_op_emi(
+        endpoint, ompt_multiplex_get_client_task_data(target_task_data),
+        ompt_multiplex_get_client_target_data(target_data), host_op_id, optype,
+        src_addr, src_device_num, dest_addr, bytes, dest_device_num,
+        codeptr_ra);
+  }
+}
+
+static void ompt_callback_target_submit_emi_wrapper_own(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_data,
+    ompt_id_t *host_op_id, unsigned int requested_num_teams) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    if (*host_op_id == 0)
+      *host_op_id = ompt_multiplex_get_unique_id();
+    ompt_multiplex_own_callbacks.ompt_callback_target_submit(
+        target_data->value, *host_op_id, requested_num_teams);
+  }
+}
+
+static void ompt_callback_target_submit_emi_wrapper_client(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_data,
+    ompt_id_t *host_op_id, unsigned int requested_num_teams) {
+  if (endpoint == ompt_scope_begin || endpoint == ompt_scope_beginend) {
+    if (*host_op_id == 0)
+      *host_op_id = ompt_multiplex_get_unique_id();
+    ompt_multiplex_client_callbacks.ompt_callback_target_submit(
+        target_data->value, *host_op_id, requested_num_teams);
+  }
+}
+
+static void ompt_multiplex_callback_target_submit_emi(
+    ompt_scope_endpoint_t endpoint, ompt_data_t *target_data,
+    ompt_id_t *host_op_id, unsigned int requested_num_teams) {
+  if (ompt_multiplex_own_callbacks.ompt_callback_target_submit_emi) {
+    ompt_multiplex_own_callbacks.ompt_callback_target_submit_emi(
+        endpoint, ompt_multiplex_get_own_target_data(target_data), host_op_id,
+        requested_num_teams);
+  }
+  if (ompt_multiplex_client_callbacks.ompt_callback_target_submit_emi) {
+    ompt_multiplex_client_callbacks.ompt_callback_target_submit_emi(
+        endpoint, ompt_multiplex_get_client_target_data(target_data),
+        host_op_id, requested_num_teams);
+  }
+}
+
+static void ompt_callback_target_map_emi_wrapper_own(
+    ompt_data_t *target_data, unsigned int nitems, void **host_addr,
+    void **device_addr, size_t *bytes, unsigned int *mapping_flags,
+    const void *codeptr_ra) {
+  ompt_multiplex_own_callbacks.ompt_callback_target_map(
+      target_data->value, nitems, host_addr, device_addr, bytes, mapping_flags,
+      codeptr_ra);
+}
+
+static void ompt_callback_target_map_emi_wrapper_client(
+    ompt_data_t *target_data, unsigned int nitems, void **host_addr,
+    void **device_addr, size_t *bytes, unsigned int *mapping_flags,
+    const void *codeptr_ra) {
+  ompt_multiplex_client_callbacks.ompt_callback_target_map(
+      target_data->value, nitems, host_addr, device_addr, bytes, mapping_flags,
+      codeptr_ra);
+}
+
+static void ompt_multiplex_callback_target_map_emi(
+    ompt_data_t *target_data, unsigned int nitems, void **host_addr,
+    void **device_addr, size_t *bytes, unsigned int *mapping_flags,
+    const void *codeptr_ra) {
+  if (ompt_multiplex_own_callbacks.ompt_callback_target_map_emi) {
+    ompt_multiplex_own_callbacks.ompt_callback_target_map_emi(
+        ompt_multiplex_get_own_target_data(target_data), nitems, host_addr,
+        device_addr, bytes, mapping_flags, codeptr_ra);
+  }
+  if (ompt_multiplex_client_callbacks.ompt_callback_target_map_emi) {
+    ompt_multiplex_client_callbacks.ompt_callback_target_map_emi(
+        ompt_multiplex_get_client_target_data(target_data), nitems, host_addr,
+        device_addr, bytes, mapping_flags, codeptr_ra);
+  }
+}
+
+static void ompt_multiplex_callback_device_mem(
+                                ompt_data_t *target_task_data,
+                                ompt_data_t *target_data,
+                                unsigned int device_mem_flag,
+                                void *host_base_addr, void *host_addr,
+                                int host_device_num, void *target_addr,
+                                int target_device_num, size_t bytes,
+                                const void *codeptr_ra, const char *var_name) {
+  if (ompt_multiplex_own_callbacks.ompt_callback_device_mem) {
+    ompt_multiplex_own_callbacks.ompt_callback_device_mem(
+        ompt_multiplex_get_own_task_data(target_task_data), ompt_multiplex_get_own_target_data(target_data), device_mem_flag, host_base_addr, host_addr, 
+        host_device_num, target_addr, target_device_num, bytes, codeptr_ra, var_name);
+  }
+  if (ompt_multiplex_client_callbacks.ompt_callback_device_mem) {
+    ompt_multiplex_client_callbacks.ompt_callback_device_mem(
+        ompt_multiplex_get_client_task_data(target_task_data), ompt_multiplex_get_client_target_data(target_data), device_mem_flag, host_base_addr, host_addr, 
+        host_device_num, target_addr, target_device_num, bytes, codeptr_ra, var_name);
+  }
+}
+
+static void ompt_multiplex_callback_error(ompt_severity_t severity,
+                                          const char *message, size_t length,
+                                          const void *codeptr_ra) {
+  if (ompt_multiplex_own_callbacks.ompt_callback_error) {
+    ompt_multiplex_own_callbacks.ompt_callback_error(severity, message, length,
+                                                     codeptr_ra);
+  }
+  if (ompt_multiplex_client_callbacks.ompt_callback_error) {
+    ompt_multiplex_client_callbacks.ompt_callback_error(severity, message,
+                                                        length, codeptr_ra);
+  }
+}
+
 // runtime entry functions
 
 int ompt_multiplex_own_get_task_info(int ancestor_level, int *type,
@@ -939,6 +1223,23 @@ OMPT_API_ROUTINE int ompt_multiplex_own_set_callback(ompt_callbacks_t which,
 
 #undef ompt_event_macro
 
+#define ompt_event_macro(event_name, callback_type, event_id)                  \
+  case ompt_##event_name:                                                      \
+    ompt_multiplex_own_callbacks.ompt_##event_name = (callback_type)callback;  \
+    ompt_multiplex_own_callbacks.ompt_##event_name##_emi =                     \
+        ompt_##event_name##_emi_wrapper_own;                                   \
+    if (ompt_multiplex_implementation_status.ompt_##event_name##_emi == -1)    \
+      return ompt_multiplex_implementation_status.ompt_##event_name##_emi =    \
+                 ompt_multiplex_set_callback(                                  \
+                     ompt_##event_name##_emi,                                  \
+                     (ompt_callback_t)&ompt_multiplex_##event_name##_emi);     \
+    else                                                                       \
+      return ompt_multiplex_implementation_status.ompt_##event_name##_emi
+
+    OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT_NOEMI(ompt_event_macro)
+
+#undef ompt_event_macro
+
   default:
     return ompt_set_error;
   }
@@ -962,6 +1263,24 @@ ompt_multiplex_client_set_callback(ompt_callbacks_t which,
       return ompt_multiplex_implementation_status.ompt_##event_name
 
     OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT(ompt_event_macro)
+
+#undef ompt_event_macro
+
+#define ompt_event_macro(event_name, callback_type, event_id)                  \
+  case ompt_##event_name:                                                      \
+    ompt_multiplex_client_callbacks.ompt_##event_name =                        \
+        (callback_type)callback;                                               \
+    ompt_multiplex_client_callbacks.ompt_##event_name##_emi =                  \
+        ompt_##event_name##_emi_wrapper_client;                                \
+    if (ompt_multiplex_implementation_status.ompt_##event_name##_emi == -1)    \
+      return ompt_multiplex_implementation_status.ompt_##event_name##_emi =    \
+                 ompt_multiplex_set_callback(                                  \
+                     ompt_##event_name##_emi,                                  \
+                     (ompt_callback_t)&ompt_multiplex_##event_name##_emi);     \
+    else                                                                       \
+      return ompt_multiplex_implementation_status.ompt_##event_name##_emi
+
+    OMPT_LOAD_CLIENT_FOREACH_OMPT_EVENT_NOEMI(ompt_event_macro)
 
 #undef ompt_event_macro
 
@@ -1003,6 +1322,8 @@ int ompt_multiplex_initialize(ompt_function_lookup_t lookup,
       (ompt_set_callback_t)lookup("ompt_set_callback");
   ompt_multiplex_get_task_info =
       (ompt_get_task_info_t)lookup("ompt_get_task_info");
+  ompt_multiplex_get_unique_id =
+      (ompt_get_unique_id_t)lookup("ompt_get_unique_id");
   ompt_multiplex_get_thread_data =
       (ompt_get_thread_data_t)lookup("ompt_get_thread_data");
   ompt_multiplex_get_parallel_info =
